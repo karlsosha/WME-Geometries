@@ -24,11 +24,12 @@
 
 "use strict";
 
-// import { WmeSDK } from "wme-sdk-typings";
-// import * as toGeoJSON from "@tmcw/togeojson";
-// import * as Terraformer from "@terraformer/wkt";
-// import * as turf from "@turf/turf";
-// import { GeoJsonProperties } from 'geojson';
+import { WmeSDK } from "wme-sdk-typings";
+import * as toGeoJSON from "@tmcw/togeojson";
+import * as Terraformer from "@terraformer/wkt";
+import * as turf from "@turf/turf";
+import { GeoJsonProperties } from "geojson";
+import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 
 window.SDK_INITIALIZED.then(geometries);
 
@@ -38,29 +39,20 @@ function geometries() {
     const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
     - Converted to WME SDK<br>
     - Added ability to remove individual layers<br>
-    - Added ability to select field to display as label for the added shape.
+    - Added ability to select field to display as label for the added shape.<br><br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
     - Draw State Boundary is no longer available<br>
     - Some 3rd Party Data Files may cause issues for display<br>
-    - 3D Points are not Supported. (LAT, LON, ALT)<br>
+    - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
 `;
-
 
     type MapFormatTypes = "GEOJSON" | "KML" | "WKT" | "GML" | "GMX" | "GPX";
     // show labels using first attribute that starts or ends with 'name' (case insensitive regexp)
     var defaultLabelName = /^name|name$/;
 
     // each loaded file will be rendered with one of these colours in ascending order
-    var colorList: Set<string> = new Set([
-        "deepskyblue",
-        "magenta",
-        "limegreen",
-        "orange",
-        "teal",
-        "navy",
-        "maroon",
-    ]);
+    var colorList: Set<string> = new Set(["deepskyblue", "magenta", "limegreen", "orange", "teal", "navy", "maroon"]);
     let usedColors: Set<string> = new Set();
 
     // Id of div element for Checkboxes:
@@ -140,6 +132,8 @@ function geometries() {
         }
     }
 
+    var geolist: HTMLUListElement;
+
     function loadLayers() {
         // Parse any locally stored layer objects
         let files: Record<string, File> = JSON.parse(localStorage.getItem("WMEGeoLayers") || "[]");
@@ -155,7 +149,7 @@ function geometries() {
             return;
         }
 
-        var geobox = document.createElement("div");
+        var geobox: HTMLDivElement = document.createElement<"div">("div");
         geobox.style.paddingTop = "6px";
 
         console.group();
@@ -166,13 +160,13 @@ function geometries() {
         geotitle.innerHTML = "Import Geometry File";
         geobox.appendChild(geotitle);
 
-        geolist = document.createElement("ul");
+        geolist = document.createElement<"ul">("ul");
         geobox.appendChild(geolist);
 
-        var geoform = document.createElement("form");
+        var geoform: HTMLFormElement = document.createElement<"form">("form");
         geobox.appendChild(geoform);
 
-        var inputfile = document.createElement("input");
+        var inputfile: HTMLInputElement = document.createElement<"input">("input");
         inputfile.type = "file";
         inputfile.id = "GeometryFile";
         inputfile.title = ".geojson, .gml or .wkt";
@@ -370,7 +364,7 @@ function geometries() {
                 break;
             case "KML":
                 let kmlData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
-                let geoJson: GeoJSON.FeatureCollection<GeoJSON.Geometry | null, GeoJsonProperties> = toGeoJSON.kml(kmlData);
+                let geoJson: GeoJSON.FeatureCollection = toGeoJSON.kml(kmlData);
                 {
                     geoJson = turf.flatten(geoJson);
                     features = geoJson.features;
@@ -379,7 +373,7 @@ function geometries() {
                 break;
             case "GPX":
                 let gpxData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
-                let gpxGeoGson: GeoJSON.FeatureCollection<GeoJSON.Geometry | null> = toGeoJSON.gpx(gpxData);
+                let gpxGeoGson: GeoJSON.FeatureCollection = toGeoJSON.gpx(gpxData);
                 {
                     gpxGeoGson = turf.flatten(gpxGeoGson);
                     features = gpxGeoGson.features;
@@ -456,7 +450,7 @@ function geometries() {
             var labelWith: string = "(no labels)";
             for (const attrib in features[0].properties) {
                 let attribLC = attrib.toLowerCase();
-                let attribClassName = `geometries-${layerindex}-` +  attribLC;
+                let attribClassName = `geometries-${layerindex}-` + attribLC;
                 let attribIdName = `geometries-${layerindex}-` + attribLC;
                 let listElement = document.createElement("li");
                 let inputElement = document.createElement("input");
@@ -558,8 +552,28 @@ function geometries() {
 
         function addFeatures(features: GeoJSON.Feature[], event: Event) {
             sdk.Map.removeAllFeaturesFromLayer({ layerName: layerid });
-            selectedAttrib = event && event.target ? event.target.textContent : "";
-            for (const f of features) {
+            selectedAttrib = event.target?.textContent;
+            function flattenFeature(f: GeoJSON.Feature): GeoJSON.FeatureCollection | undefined {
+                let returnCollection: GeoJSON.FeatureCollection | undefined;
+                if (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon") {
+                    let flatFeatureCollection: GeoJSON.FeatureCollection = turf.flatten(f);
+                    for (let idx = 0; flatFeatureCollection.features.length > 1 && idx < flatFeatureCollection.features.length; ++idx) {
+                        let ftr = flatFeatureCollection.features[idx];
+                    }
+                }
+
+                return returnCollection;
+            }
+            let flatFeatures: GeoJSON.Feature[] = [];
+            for (let f of features) {
+                let flatCollection = flattenFeature(f);
+                if (flatCollection) {
+                    flatFeatures.push(...flatCollection.features);
+                } else {
+                    flatFeatures.push(f);
+                }
+            }
+            for (let f of flatFeatures) {
                 if (f.properties) {
                     labelWith = "Labels: " + selectedAttrib;
                     let layerStyle = {
@@ -601,8 +615,6 @@ function geometries() {
         usedColors.clear();
         return false;
     }
-
 }
-
 
 // // ------------------------------------------------------------------------------------

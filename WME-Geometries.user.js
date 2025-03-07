@@ -21,11 +21,10 @@
 // ==/UserScript==
 /* global WazeWrap */
 "use strict";
-// import { WmeSDK } from "wme-sdk-typings";
-// import * as toGeoJSON from "@tmcw/togeojson";
-// import * as Terraformer from "@terraformer/wkt";
-// import * as turf from "@turf/turf";
-// import { GeoJsonProperties } from 'geojson';
+import * as toGeoJSON from "@tmcw/togeojson";
+import * as Terraformer from "@terraformer/wkt";
+import * as turf from "@turf/turf";
+import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 window.SDK_INITIALIZED.then(geometries);
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
@@ -33,25 +32,17 @@ function geometries() {
     const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
     - Converted to WME SDK<br>
     - Added ability to remove individual layers<br>
-    - Added ability to select field to display as label for the added shape.
+    - Added ability to select field to display as label for the added shape.<br><br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
     - Draw State Boundary is no longer available<br>
     - Some 3rd Party Data Files may cause issues for display<br>
-    - 3D Points are not Supported. (LAT, LON, ALT)<br>
+    - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
 `;
     // show labels using first attribute that starts or ends with 'name' (case insensitive regexp)
     var defaultLabelName = /^name|name$/;
     // each loaded file will be rendered with one of these colours in ascending order
-    var colorList = new Set([
-        "deepskyblue",
-        "magenta",
-        "limegreen",
-        "orange",
-        "teal",
-        "navy",
-        "maroon",
-    ]);
+    var colorList = new Set(["deepskyblue", "magenta", "limegreen", "orange", "teal", "navy", "maroon"]);
     let usedColors = new Set();
     // Id of div element for Checkboxes:
     const checkboxListID = "geometries-cb-list-id";
@@ -111,6 +102,7 @@ function geometries() {
             this.formatType = fileext.toUpperCase();
         }
     }
+    var geolist;
     function loadLayers() {
         // Parse any locally stored layer objects
         let files = JSON.parse(localStorage.getItem("WMEGeoLayers") || "[]");
@@ -499,8 +491,28 @@ function geometries() {
         }
         function addFeatures(features, event) {
             sdk.Map.removeAllFeaturesFromLayer({ layerName: layerid });
-            selectedAttrib = event && event.target ? event.target.textContent : "";
-            for (const f of features) {
+            selectedAttrib = event.target?.textContent;
+            function flattenFeature(f) {
+                let returnCollection;
+                if (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon") {
+                    let flatFeatureCollection = turf.flatten(f);
+                    for (let idx = 0; flatFeatureCollection.features.length > 1 && idx < flatFeatureCollection.features.length; ++idx) {
+                        let ftr = flatFeatureCollection.features[idx];
+                    }
+                }
+                return returnCollection;
+            }
+            let flatFeatures = [];
+            for (let f of features) {
+                let flatCollection = flattenFeature(f);
+                if (flatCollection) {
+                    flatFeatures.push(...flatCollection.features);
+                }
+                else {
+                    flatFeatures.push(f);
+                }
+            }
+            for (let f of flatFeatures) {
                 if (f.properties) {
                     labelWith = "Labels: " + selectedAttrib;
                     let layerStyle = {

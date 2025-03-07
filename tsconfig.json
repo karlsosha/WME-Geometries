@@ -11,9 +11,8 @@
       "allowJs": true,
       "outDir": "./",
       "types": [
-        "lz-string",
-        "i18n",
         "wme-sdk-typings",
+        "tampermonkey",
         "jquery"
       ]
     },
