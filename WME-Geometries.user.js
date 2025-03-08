@@ -21,10 +21,12 @@
 // ==/UserScript==
 /* global WazeWrap */
 "use strict";
-import * as toGeoJSON from "@tmcw/togeojson";
-import * as Terraformer from "@terraformer/wkt";
-import * as turf from "@turf/turf";
-import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
+// import { WmeSDK } from "wme-sdk-typings";
+// import * as toGeoJSON from "@tmcw/togeojson";
+// import * as Terraformer from "@terraformer/wkt";
+// import * as turf from "@turf/turf";
+// import { GeoJsonProperties, Position } from "geojson";
+// import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 window.SDK_INITIALIZED.then(geometries);
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
@@ -285,6 +287,35 @@ function geometries() {
             ],
         },
     };
+    function polygonSanityChecking(f) {
+        let resPolygonCoordinates = [];
+        for (const poly of f.geometry.coordinates) {
+            let resSubPolyCoordinates = [];
+            let positionSet = new Set();
+            for (let ix = 0; ix < poly.length - 1; ++ix) {
+                if (positionSet.has(poly[ix].toString()))
+                    continue;
+                resSubPolyCoordinates.push(poly[ix]);
+                positionSet.add(poly[ix].toString());
+            }
+            resSubPolyCoordinates.push(resSubPolyCoordinates[0]);
+            resPolygonCoordinates.push(resSubPolyCoordinates);
+        }
+        return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
+    }
+    let sanityChecker = {
+        polygon: polygonSanityChecking
+    };
+    function sanityCheck(source) {
+        let resFeatures = [];
+        for (const f of source) {
+            switch (f.geometry.type) {
+                case "Polygon": resFeatures.push(sanityChecker.polygon(f));
+                default: resFeatures.push(f);
+            }
+        }
+        return resFeatures.length === 0 ? undefined : resFeatures;
+    }
     // Renders a layer object
     function parseFile(layerObj) {
         // add a new layer for the geometry
@@ -302,7 +333,7 @@ function geometries() {
                 let jsonObject = JSON.parse(layerObj.fileContent);
                 {
                     jsonObject = turf.flatten(jsonObject);
-                    features = jsonObject.features;
+                    features = sanityCheck(jsonObject.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -311,7 +342,7 @@ function geometries() {
                 let geoJson = toGeoJSON.kml(kmlData);
                 {
                     geoJson = turf.flatten(geoJson);
-                    features = geoJson.features;
+                    features = sanityCheck(geoJson.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -320,7 +351,7 @@ function geometries() {
                 let gpxGeoGson = toGeoJSON.gpx(gpxData);
                 {
                     gpxGeoGson = turf.flatten(gpxGeoGson);
-                    features = gpxGeoGson.features;
+                    features = sanityCheck(gpxGeoGson.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -328,13 +359,13 @@ function geometries() {
                 const wktGeoJson = Terraformer.wktToGeoJSON(layerObj.fileContent);
                 switch (wktGeoJson.type) {
                     case "Polygon":
-                        features = [
+                        features = sanityCheck([
                             {
                                 type: "Feature",
                                 properties: { name: layerObj.fileName },
                                 geometry: wktGeoJson,
                             },
-                        ];
+                        ]);
                         break;
                     case "GeometryCollection":
                         features = [];
@@ -347,7 +378,7 @@ function geometries() {
                         }
                         let featureCollection = turf.featureCollection(features);
                         featureCollection = turf.flatten(featureCollection);
-                        features = featureCollection.features;
+                        features = sanityCheck(featureCollection.features);
                         break;
                     default:
                         let errorMessage = "Unknown Type has been Encountered";
@@ -361,7 +392,7 @@ function geometries() {
                 let gmlGeoJSON = gml2geojson.parseGML(layerObj.fileContent);
                 {
                     gmlGeoJSON = turf.flatten(gmlGeoJSON);
-                    features = gmlGeoJSON.features;
+                    features = sanityCheck(gmlGeoJSON.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -492,27 +523,7 @@ function geometries() {
         function addFeatures(features, event) {
             sdk.Map.removeAllFeaturesFromLayer({ layerName: layerid });
             selectedAttrib = event.target?.textContent;
-            function flattenFeature(f) {
-                let returnCollection;
-                if (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon") {
-                    let flatFeatureCollection = turf.flatten(f);
-                    for (let idx = 0; flatFeatureCollection.features.length > 1 && idx < flatFeatureCollection.features.length; ++idx) {
-                        let ftr = flatFeatureCollection.features[idx];
-                    }
-                }
-                return returnCollection;
-            }
-            let flatFeatures = [];
             for (let f of features) {
-                let flatCollection = flattenFeature(f);
-                if (flatCollection) {
-                    flatFeatures.push(...flatCollection.features);
-                }
-                else {
-                    flatFeatures.push(f);
-                }
-            }
-            for (let f of flatFeatures) {
                 if (f.properties) {
                     labelWith = "Labels: " + selectedAttrib;
                     let layerStyle = {
