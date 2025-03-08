@@ -1,12 +1,13 @@
 {
     "name": "wme-geometries",
     "devDependencies": {
-        "@tmcw/togeojson": "^6.0.1",
+        "@tmcw/togeojson": "^7.0.0",
         "@turf/flatten": "^7.2.0",
         "@turf/turf": "^7.2.0",
         "@types/geojson": "^7946.0.16",
         "@types/i18n": "^0.13.12",
         "@types/jquery": "^3.5.32",
+        "@types/tampermonkey": "^5.0.4",
         "@types/terraformer__wkt": "^2.0.3",
         "gml2geojson": "^0.0.7",
         "typescript": "^5.8.2",
@@ -27,7 +28,7 @@
     "dependencies": {
         "@terraformer/wkt": "^2.2.1",
         "jquery": "^3.7.1",
-        "prettier": "^3.5.1",
+        "prettier": "^3.5.3",
         "wme-geometries": "file:"
     }
 }

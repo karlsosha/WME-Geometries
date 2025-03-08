@@ -25,7 +25,8 @@
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
 // import * as turf from "@turf/turf";
-// import { GeoJsonProperties } from 'geojson';
+// import { GeoJsonProperties, Polygon, Position } from "geojson";
+// import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 window.SDK_INITIALIZED.then(geometries);
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
@@ -33,25 +34,17 @@ function geometries() {
     const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
     - Converted to WME SDK<br>
     - Added ability to remove individual layers<br>
-    - Added ability to select field to display as label for the added shape.
+    - Added ability to select field to display as label for the added shape.<br><br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
     - Draw State Boundary is no longer available<br>
     - Some 3rd Party Data Files may cause issues for display<br>
-    - 3D Points are not Supported. (LAT, LON, ALT)<br>
+    - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
 `;
     // show labels using first attribute that starts or ends with 'name' (case insensitive regexp)
     var defaultLabelName = /^name|name$/;
     // each loaded file will be rendered with one of these colours in ascending order
-    var colorList = new Set([
-        "deepskyblue",
-        "magenta",
-        "limegreen",
-        "orange",
-        "teal",
-        "navy",
-        "maroon",
-    ]);
+    var colorList = new Set(["deepskyblue", "magenta", "limegreen", "orange", "teal", "navy", "maroon"]);
     let usedColors = new Set();
     // Id of div element for Checkboxes:
     const checkboxListID = "geometries-cb-list-id";
@@ -111,6 +104,7 @@ function geometries() {
             this.formatType = fileext.toUpperCase();
         }
     }
+    var geolist;
     function loadLayers() {
         // Parse any locally stored layer objects
         let files = JSON.parse(localStorage.getItem("WMEGeoLayers") || "[]");
@@ -293,6 +287,68 @@ function geometries() {
             ],
         },
     };
+    function polygonSanitization(f) {
+        let resPolygonCoordinates = [];
+        for (const poly of f.geometry.coordinates) {
+            let resSubPolyCoordinates = [];
+            let positionMap = new Map();
+            for (let ix = 0; ix < poly.length - 1; ++ix) {
+                let key = poly[ix].toString();
+                if (positionMap.has(key)) {
+                    positionMap.get(key)?.push(ix);
+                }
+                else {
+                    positionMap.set(key, [ix]);
+                }
+                resSubPolyCoordinates.push(poly[ix]);
+            }
+            resSubPolyCoordinates.push(resSubPolyCoordinates[0]);
+            let removeSpliced = false;
+            positionMap.forEach(function (value, key, map) {
+                if (value.length > 1) {
+                    if (value.length % 2 !== 0) {
+                        let message = `Currently Polygons with multiple intersects of the same vertex are not supported.
+                             They have to be splittable into distinct Polygons.
+                             Please contact script maintainers for bug fix with original Data Source`;
+                        console.error(message);
+                        throw new Error(message);
+                    }
+                    for (let vix = 0; vix < value.length; vix += 2) {
+                        resPolygonCoordinates.push(resSubPolyCoordinates.slice(value[vix], value[vix + 1] + 1));
+                        resSubPolyCoordinates.fill([], value[vix] + 1, value[vix + 1] + 1);
+                        removeSpliced = true;
+                    }
+                }
+            });
+            if (removeSpliced) {
+                for (let i = 0; i < resSubPolyCoordinates.length; ++i) {
+                    if (resSubPolyCoordinates[i].length === 0) {
+                        resSubPolyCoordinates.splice(i, 1);
+                        --i;
+                    }
+                }
+            }
+            resPolygonCoordinates.push(resSubPolyCoordinates);
+        }
+        return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
+    }
+    let sanityChecker = {
+        polygon: polygonSanitization,
+    };
+    function sanityCheck(source) {
+        let resFeatures = [];
+        for (const f of source) {
+            switch (f.geometry.type) {
+                case "Polygon":
+                    resFeatures.push(sanityChecker.polygon(f));
+                    break;
+                default:
+                    resFeatures.push(f);
+                    break;
+            }
+        }
+        return resFeatures.length === 0 ? undefined : resFeatures;
+    }
     // Renders a layer object
     function parseFile(layerObj) {
         // add a new layer for the geometry
@@ -310,7 +366,7 @@ function geometries() {
                 let jsonObject = JSON.parse(layerObj.fileContent);
                 {
                     jsonObject = turf.flatten(jsonObject);
-                    features = jsonObject.features;
+                    features = sanityCheck(jsonObject.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -319,7 +375,7 @@ function geometries() {
                 let geoJson = toGeoJSON.kml(kmlData);
                 {
                     geoJson = turf.flatten(geoJson);
-                    features = geoJson.features;
+                    features = sanityCheck(geoJson.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -328,7 +384,7 @@ function geometries() {
                 let gpxGeoGson = toGeoJSON.gpx(gpxData);
                 {
                     gpxGeoGson = turf.flatten(gpxGeoGson);
-                    features = gpxGeoGson.features;
+                    features = sanityCheck(gpxGeoGson.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -336,13 +392,13 @@ function geometries() {
                 const wktGeoJson = Terraformer.wktToGeoJSON(layerObj.fileContent);
                 switch (wktGeoJson.type) {
                     case "Polygon":
-                        features = [
+                        features = sanityCheck([
                             {
                                 type: "Feature",
                                 properties: { name: layerObj.fileName },
                                 geometry: wktGeoJson,
                             },
-                        ];
+                        ]);
                         break;
                     case "GeometryCollection":
                         features = [];
@@ -355,7 +411,7 @@ function geometries() {
                         }
                         let featureCollection = turf.featureCollection(features);
                         featureCollection = turf.flatten(featureCollection);
-                        features = featureCollection.features;
+                        features = sanityCheck(featureCollection.features);
                         break;
                     default:
                         let errorMessage = "Unknown Type has been Encountered";
@@ -369,7 +425,7 @@ function geometries() {
                 let gmlGeoJSON = gml2geojson.parseGML(layerObj.fileContent);
                 {
                     gmlGeoJSON = turf.flatten(gmlGeoJSON);
-                    features = gmlGeoJSON.features;
+                    features = sanityCheck(gmlGeoJSON.features);
                 }
                 geometryLayers[layerid] = features;
                 break;
@@ -499,8 +555,8 @@ function geometries() {
         }
         function addFeatures(features, event) {
             sdk.Map.removeAllFeaturesFromLayer({ layerName: layerid });
-            selectedAttrib = event && event.target ? event.target.textContent : "";
-            for (const f of features) {
+            selectedAttrib = event.target?.textContent;
+            for (let f of features) {
                 if (f.properties) {
                     labelWith = "Labels: " + selectedAttrib;
                     let layerStyle = {
