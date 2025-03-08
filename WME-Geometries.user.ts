@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name                WME Geometries
-// @version             2025.03.05.000
+// @version             2025.03.08.001
 // @description         Import geometry files into Waze Map Editor. Supports GeoJSON, GML, WKT, KML and GPX.
 // @match               https://www.waze.com/*/editor*
 // @match               https://www.waze.com/editor*
@@ -39,6 +39,7 @@ function geometries() {
     const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
     - Converted to WME SDK<br>
     - Added ability to remove individual layers<br>
+    - Fixed issues with "butterfly" polygons<br>
     - Added ability to select field to display as label for the added shape.<br><br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
