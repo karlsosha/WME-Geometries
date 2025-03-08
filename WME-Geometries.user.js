@@ -25,7 +25,7 @@
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
 // import * as turf from "@turf/turf";
-// import { GeoJsonProperties, Position } from "geojson";
+// import { GeoJsonProperties, Polygon, Position } from "geojson";
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 window.SDK_INITIALIZED.then(geometries);
 function geometries() {
@@ -287,31 +287,64 @@ function geometries() {
             ],
         },
     };
-    function polygonSanityChecking(f) {
+    function polygonSanitization(f) {
         let resPolygonCoordinates = [];
         for (const poly of f.geometry.coordinates) {
             let resSubPolyCoordinates = [];
-            let positionSet = new Set();
+            let positionMap = new Map();
             for (let ix = 0; ix < poly.length - 1; ++ix) {
-                if (positionSet.has(poly[ix].toString()))
-                    continue;
+                let key = poly[ix].toString();
+                if (positionMap.has(key)) {
+                    positionMap.get(key)?.push(ix);
+                }
+                else {
+                    positionMap.set(key, [ix]);
+                }
                 resSubPolyCoordinates.push(poly[ix]);
-                positionSet.add(poly[ix].toString());
             }
             resSubPolyCoordinates.push(resSubPolyCoordinates[0]);
+            let removeSpliced = false;
+            positionMap.forEach(function (value, key, map) {
+                if (value.length > 1) {
+                    if (value.length % 2 !== 0) {
+                        let message = `Currently Polygons with multiple intersects of the same vertex are not supported.
+                             They have to be splittable into distinct Polygons.
+                             Please contact script maintainers for bug fix with original Data Source`;
+                        console.error(message);
+                        throw new Error(message);
+                    }
+                    for (let vix = 0; vix < value.length; vix += 2) {
+                        resPolygonCoordinates.push(resSubPolyCoordinates.slice(value[vix], value[vix + 1] + 1));
+                        resSubPolyCoordinates.fill([], value[vix] + 1, value[vix + 1] + 1);
+                        removeSpliced = true;
+                    }
+                }
+            });
+            if (removeSpliced) {
+                for (let i = 0; i < resSubPolyCoordinates.length; ++i) {
+                    if (resSubPolyCoordinates[i].length === 0) {
+                        resSubPolyCoordinates.splice(i, 1);
+                        --i;
+                    }
+                }
+            }
             resPolygonCoordinates.push(resSubPolyCoordinates);
         }
         return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
     }
     let sanityChecker = {
-        polygon: polygonSanityChecking
+        polygon: polygonSanitization,
     };
     function sanityCheck(source) {
         let resFeatures = [];
         for (const f of source) {
             switch (f.geometry.type) {
-                case "Polygon": resFeatures.push(sanityChecker.polygon(f));
-                default: resFeatures.push(f);
+                case "Polygon":
+                    resFeatures.push(sanityChecker.polygon(f));
+                    break;
+                default:
+                    resFeatures.push(f);
+                    break;
             }
         }
         return resFeatures.length === 0 ? undefined : resFeatures;
