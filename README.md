@@ -1,3 +1,8 @@
 # WME-Geometries
 
 Script from Timbones WME Geometries in Greasyfork
+
+
+# DO NOT MODIFY JavaScript File Directly.
+# ALL CHANGES ARE TO BE MADE TO TYPESCRIPT FILE
+# ANY CHANGES DIRECTLY TO JAVASCRIPT FILE WILL BE OVERWRITTEN
