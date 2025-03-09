@@ -11,6 +11,7 @@
 // @require             https://cdn.jsdelivr.net/npm/gml2geojson@0.0.7/dist/gml2geojson.min.js
 // @require             https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @require             https://cdn.jsdelivr.net/npm/@placemarkio/geojson-rewind@1.0.2/dist/rewind.umd.min.js
 // @grant               none
 // @author              Timbones
 // @contributor         wlodek76
@@ -28,8 +29,9 @@
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
 // import * as turf from "@turf/turf";
-// import { GeoJsonProperties, Polygon, Position } from "geojson";
+// import { Polygon, Position } from "geojson";
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
+// import * as rewind from "@placemarkio/geojson-rewind";
 
 window.SDK_INITIALIZED.then(geometries);
 
@@ -118,13 +120,13 @@ function geometries() {
     });
 
     class LayerStoreObj {
-        fileContent: string;
+        fileContent: string | null | undefined;
         color: string;
         fileExt: string;
         fileName: string;
         formatType: MapFormatTypes;
 
-        constructor(fileContent: string, color: string, fileext: string, filename: string) {
+        constructor(fileContent: string | null | undefined, color: string, fileext: string, filename: string) {
             this.fileContent = fileContent;
             this.color = color;
             this.fileExt = fileext;
@@ -247,7 +249,7 @@ function geometries() {
         processGeometryFile(file);
     }
 
-    function processGeometryFile(file) {
+    function processGeometryFile(file: File) {
         if (colorList.size === 0) {
             console.error("Cannot add Any more Layers at this point");
         }
@@ -260,6 +262,7 @@ function geometries() {
         var color: string | undefined = colorList.values().next().value;
         if (!color) {
             console.error("Cannot add Any more Layers at this point");
+            return;
         }
         colorList.delete(color);
         usedColors.add(color);
@@ -285,7 +288,7 @@ function geometries() {
         var reader = new FileReader();
         reader.onload = (function (theFile: File) {
             return function (e: ProgressEvent<FileReader>) {
-                var tObj = new LayerStoreObj(e.target.result, color, fileext, filename);
+                var tObj = new LayerStoreObj(e.target?.result, color, fileext, filename);
                 parseFile(tObj);
                 let filenames: Record<string, File> = JSON.parse(localStorage.getItem("WMEGeoLayers") || "[]");
                 filenames[color] = theFile;
@@ -343,6 +346,8 @@ function geometries() {
     };
 
     function polygonSanitization(f: GeoJSON.Feature<Polygon>): GeoJSON.Feature<Polygon> {
+        // Rewind first:
+        f = rewind.rewindFeature(f, "RFC7946");
         let resPolygonCoordinates: Position[][] = [];
         for (const poly of f.geometry.coordinates) {
             let resSubPolyCoordinates: Position[] = [];
@@ -514,7 +519,7 @@ function geometries() {
         layersList.id = checkboxListID;
         let trigger = null;
         // check we have features to render
-        if (features.length > 0) {
+        if (features && features.length > 0) {
             // check which attribute can be used for labels
             var labelWith: string = "(no labels)";
             for (const attrib in features[0].properties) {

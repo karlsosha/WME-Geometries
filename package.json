@@ -26,6 +26,7 @@
     },
     "private": true,
     "dependencies": {
+        "@placemarkio/geojson-rewind": "^1.0.2",
         "@terraformer/wkt": "^2.2.1",
         "jquery": "^3.7.1",
         "prettier": "^3.5.3",
