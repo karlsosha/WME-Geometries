@@ -6,7 +6,7 @@
 // @match               https://www.waze.com/editor*
 // @match               https://beta.waze.com/*
 // @exclude             https://www.waze.com/*user/*editor/*
-// @require             https://cdn.jsdelivr.net/npm/@tmcw/togeojson@6.0.0/dist/togeojson.umd.min.js
+// @require             https://cdn.jsdelivr.net/npm/@tmcw/togeojson@7.0.0/dist/togeojson.umd.min.js
 // @require             https://unpkg.com/@terraformer/wkt
 // @require             https://cdn.jsdelivr.net/npm/gml2geojson@0.0.7/dist/gml2geojson.min.js
 // @require             https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
@@ -26,7 +26,7 @@
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
 // import * as turf from "@turf/turf";
-// import { Polygon, Position } from "geojson";
+// import { Feature, LineString, Point, Polygon, Position } from "geojson";
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 // import * as rewind from "@placemarkio/geojson-rewind";
 window.SDK_INITIALIZED.then(geometries);
@@ -37,11 +37,12 @@ function geometries() {
     - Converted to WME SDK<br>
     - Added ability to remove individual layers<br>
     - Fixed issues with "butterfly" polygons<br>
-    - Added ability to select field to display as label for the added shape.<br><br>
+    - Added ability to select field to display as label for the added shape.<br>
+    - Support for 3D points and coordinates<br>
+    - Multiple Bug Fixes. <br><br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
-    - Draw State Boundary is no longer available<br>
-    - Some 3rd Party Data Files may cause issues for display<br>
+    - Draw State Boundary is no longer available<br><br>
     - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
 `;
     // show labels using first attribute that starts or ends with 'name' (case insensitive regexp)
@@ -51,7 +52,8 @@ function geometries() {
     let usedColors = new Set();
     // Id of div element for Checkboxes:
     const checkboxListID = "geometries-cb-list-id";
-    let geometryLayers = {};
+    // -------------------------------------------------------------
+    let geometryLayers = new Set();
     let parser;
     let Formats;
     (function (Formats) {
@@ -188,11 +190,12 @@ function geometries() {
     // import selected file as a vector layer
     function addGeometryLayer() {
         // get the selected file from user
-        var fileList = document.getElementById("GeometryFile");
+        var fileListElement = document.getElementById("GeometryFile");
+        var fileList = fileListElement.files;
         if (!fileList)
             return;
-        var file = fileList.files[0];
-        fileList.value = "";
+        var file = fileList[0];
+        fileListElement.value = "";
         processGeometryFile(file);
     }
     function processGeometryFile(file) {
@@ -231,8 +234,13 @@ function geometries() {
         // read the file into the new layer, and update the localStorage layer cache
         var reader = new FileReader();
         reader.onload = (function (theFile) {
-            return function (e) {
-                var tObj = new LayerStoreObj(e.target?.result, color, fileext, filename);
+            return function (ev) {
+                if (!color) {
+                    let msg = "Color is Undefined.  Cannot Load File";
+                    console.error(msg);
+                    throw new Error(msg);
+                }
+                var tObj = new LayerStoreObj(ev.target?.result, color, fileext, filename);
                 parseFile(tObj);
                 let filenames = JSON.parse(localStorage.getItem("WMEGeoLayers") || "[]");
                 filenames[color] = theFile;
@@ -342,12 +350,34 @@ function geometries() {
         }
         return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
     }
+    function remove3DPoints(feature) {
+        let resFeature = undefined;
+        switch (feature.geometry.type) {
+            case "Point":
+                feature.geometry.coordinates.splice(2);
+                resFeature = feature;
+                break;
+            case "LineString":
+                let lsPos = feature.geometry.coordinates.map((pos) => pos.splice(2) === undefined ? pos : pos);
+                resFeature = turf.lineString(lsPos, feature.properties, { bbox: feature.bbox, id: feature.id });
+                break;
+            case "Polygon":
+                let polyPos = feature.geometry.coordinates.map((poly) => poly.map((pos) => pos.splice(2) ? pos : pos) ? poly : poly);
+                resFeature = turf.polygon(polyPos, feature.properties, { bbox: feature.bbox, id: feature.id });
+                break;
+            default:
+                let msg = "Unsupported Type of Feature for 3D Points Removal";
+                console.log(msg);
+        }
+        return resFeature;
+    }
     let sanityChecker = {
         polygon: polygonSanitization,
     };
     function sanityCheck(source) {
         let resFeatures = [];
-        for (const f of source) {
+        for (let f of source) {
+            f = remove3DPoints(f);
             switch (f.geometry.type) {
                 case "Polygon":
                     resFeatures.push(sanityChecker.polygon(f));
@@ -371,77 +401,82 @@ function geometries() {
         sdk.Map.setLayerVisibility({ layerName: layerid, visibility: true });
         sdk.LayerSwitcher.addLayerCheckbox({ name: layerid });
         let features = [];
-        switch (layerObj.formatType) {
-            case "GEOJSON":
-                let jsonObject = JSON.parse(layerObj.fileContent);
-                {
-                    jsonObject = turf.flatten(jsonObject);
-                    features = sanityCheck(jsonObject.features);
-                }
-                geometryLayers[layerid] = features;
-                break;
-            case "KML":
-                let kmlData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
-                let geoJson = toGeoJSON.kml(kmlData);
-                {
-                    geoJson = turf.flatten(geoJson);
-                    features = sanityCheck(geoJson.features);
-                }
-                geometryLayers[layerid] = features;
-                break;
-            case "GPX":
-                let gpxData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
-                let gpxGeoGson = toGeoJSON.gpx(gpxData);
-                {
-                    gpxGeoGson = turf.flatten(gpxGeoGson);
-                    features = sanityCheck(gpxGeoGson.features);
-                }
-                geometryLayers[layerid] = features;
-                break;
-            case "WKT":
-                const wktGeoJson = Terraformer.wktToGeoJSON(layerObj.fileContent);
-                switch (wktGeoJson.type) {
-                    case "Polygon":
-                        features = sanityCheck([
-                            {
-                                type: "Feature",
-                                properties: { name: layerObj.fileName },
-                                geometry: wktGeoJson,
-                            },
-                        ]);
-                        break;
-                    case "GeometryCollection":
-                        features = [];
-                        for (let g in wktGeoJson.geometries) {
-                            features.push({
-                                type: "Feature",
-                                properties: { name: layerObj.fileName },
-                                geometry: wktGeoJson.geometries[g],
-                            });
-                        }
-                        let featureCollection = turf.featureCollection(features);
-                        featureCollection = turf.flatten(featureCollection);
-                        features = sanityCheck(featureCollection.features);
-                        break;
-                    default:
-                        let errorMessage = "Unknown Type has been Encountered";
-                        console.error(errorMessage);
-                        throw Error(errorMessage);
-                        break;
-                }
-                break;
-            case "GML":
-                // let gmlData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
-                let gmlGeoJSON = gml2geojson.parseGML(layerObj.fileContent);
-                {
-                    gmlGeoJSON = turf.flatten(gmlGeoJSON);
-                    features = sanityCheck(gmlGeoJSON.features);
-                }
-                geometryLayers[layerid] = features;
-                break;
-            default:
-                throw new Error(`Format Type: ${layerObj.formatType} is not implemented`);
+        if (layerObj.fileContent) {
+            switch (layerObj.formatType) {
+                case "GEOJSON":
+                    let jsonObject = JSON.parse(layerObj.fileContent);
+                    {
+                        jsonObject = turf.flatten(jsonObject);
+                        features = sanityCheck(jsonObject.features);
+                    }
+                    // geometryLayers[layerid] = features;
+                    break;
+                case "KML":
+                    let kmlData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
+                    let geoJson = toGeoJSON.kml(kmlData);
+                    {
+                        geoJson = turf.flatten(geoJson);
+                        features = sanityCheck(geoJson.features);
+                    }
+                    // geometryLayers[layerid] = features;
+                    break;
+                case "GPX":
+                    let gpxData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
+                    let gpxGeoGson = toGeoJSON.gpx(gpxData);
+                    {
+                        gpxGeoGson = turf.flatten(gpxGeoGson);
+                        features = sanityCheck(gpxGeoGson.features);
+                    }
+                    // geometryLayers[layerid] = features;
+                    break;
+                case "WKT":
+                    const wktGeoJson = Terraformer.wktToGeoJSON(layerObj.fileContent);
+                    switch (wktGeoJson.type) {
+                        case "Polygon":
+                            features = sanityCheck([
+                                {
+                                    type: "Feature",
+                                    properties: { name: layerObj.fileName },
+                                    geometry: wktGeoJson,
+                                },
+                            ]);
+                            break;
+                        case "GeometryCollection":
+                            features = [];
+                            for (let g in wktGeoJson.geometries) {
+                                features.push({
+                                    type: "Feature",
+                                    properties: { name: layerObj.fileName },
+                                    geometry: wktGeoJson.geometries[g],
+                                });
+                            }
+                            let featureCollection = turf.featureCollection(features);
+                            featureCollection = turf.flatten(featureCollection);
+                            features = sanityCheck(featureCollection.features);
+                            break;
+                        default:
+                            let errorMessage = "Unknown Type has been Encountered";
+                            console.error(errorMessage);
+                            throw Error(errorMessage);
+                    }
+                    break;
+                case "GML":
+                    // let gmlData = new DOMParser().parseFromString(layerObj.fileContent, "application/xml");
+                    let gmlGeoJSON = gml2geojson.parseGML(layerObj.fileContent);
+                    {
+                        gmlGeoJSON = turf.flatten(gmlGeoJSON);
+                        features = sanityCheck(gmlGeoJSON.features);
+                    }
+                    // geometryLayers[layerid] = features;
+                    break;
+                default:
+                    throw new Error(`Format Type: ${layerObj.formatType} is not implemented`);
+            }
         }
+        else {
+            throw new Error("File Content is Empty");
+        }
+        geometryLayers.add(layerid);
         // hack in translation:
         // I18n.translations[sdk.Settings.getLocale()].layers.name[layerid] = "WME Geometries: " + layerObj.filename;
         // if (/"EPSG:3857"|:EPSG::3857"/.test(layerObj.fileContent)) {
@@ -459,7 +494,9 @@ function geometries() {
         layersList.id = checkboxListID;
         let trigger = null;
         // check we have features to render
-        if (features && features.length > 0) {
+        if (!features)
+            return;
+        if (features.length > 0) {
             // check which attribute can be used for labels
             var labelWith = "(no labels)";
             for (const attrib in features[0].properties) {
@@ -480,9 +517,6 @@ function geometries() {
                 labelElement.setAttribute("for", attribIdName);
                 labelElement.style.color = "black";
                 listElement.appendChild(labelElement);
-                // let selectorString = "<li><input type=radio class='" + attribClassName + "' id='" +
-                //     attribIdName + "' name='geometries-name-label'/>" +
-                //     "<label class='geometries-cb-label'>" + attrib + "</label></li>"
                 layersList.appendChild(listElement);
                 $(inputElement).on("change", function (event) {
                     addFeatures(features, event);
@@ -548,7 +582,7 @@ function geometries() {
                     }
                 }
                 sdk.Map.removeLayer({ layerName: clearLayerId });
-                delete geometryLayers[clearLayerId];
+                geometryLayers.delete(clearLayerId);
                 sdk.LayerSwitcher.removeLayerCheckbox({ name: clearLayerId });
                 let listId = this.textContent?.replace("Clear ", "");
                 if (!listId)
@@ -565,7 +599,7 @@ function geometries() {
         }
         function addFeatures(features, event) {
             sdk.Map.removeAllFeaturesFromLayer({ layerName: layerid });
-            selectedAttrib = event.target?.textContent;
+            selectedAttrib = event.target.textContent;
             for (let f of features) {
                 if (f.properties) {
                     labelWith = "Labels: " + selectedAttrib;
@@ -599,7 +633,7 @@ function geometries() {
             sdk.Map.removeLayer({ layerName: l });
             sdk.LayerSwitcher.removeLayerCheckbox({ name: l });
         }
-        geometryLayers = {};
+        geometryLayers.clear();
         geolist.innerHTML = "";
         layerindex = 0;
         // Clear the cached layers
