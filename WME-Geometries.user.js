@@ -187,11 +187,12 @@ function geometries() {
     // import selected file as a vector layer
     function addGeometryLayer() {
         // get the selected file from user
-        var fileList = document.getElementById("GeometryFile");
+        var fileListElement = document.getElementById("GeometryFile");
+        var fileList = fileListElement.files;
         if (!fileList)
             return;
-        var file = fileList.files[0];
-        fileList.value = "";
+        var file = fileList[0];
+        fileListElement.value = "";
         processGeometryFile(file);
     }
     function processGeometryFile(file) {
@@ -350,14 +351,16 @@ function geometries() {
         let resFeature = undefined;
         switch (feature.geometry.type) {
             case "Point":
-                let pt = feature.geometry.coordinates.splice(2);
-                resFeature = turf.point(pt, feature.properties, { bbox: feature.bbox, id: feature.id });
+                feature.geometry.coordinates.splice(2);
+                resFeature = feature;
                 break;
             case "LineString":
-                let lsPos = feature.geometry.coordinates.map(pos => pos.splice(2));
+                let lsPos = feature.geometry.coordinates.map((pos) => pos.splice(2) === undefined ? pos : pos);
                 resFeature = turf.lineString(lsPos, feature.properties, { bbox: feature.bbox, id: feature.id });
                 break;
             case "Polygon":
+                let polyPos = feature.geometry.coordinates.map((poly) => poly.map((pos) => pos.splice(2) ? pos : pos) ? poly : poly);
+                resFeature = turf.polygon(polyPos, feature.properties, { bbox: feature.bbox, id: feature.id });
                 break;
             default:
                 let msg = "Unsupported Type of Feature for 3D Points Removal";

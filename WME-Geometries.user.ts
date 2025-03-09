@@ -240,10 +240,11 @@ function geometries() {
     // import selected file as a vector layer
     function addGeometryLayer() {
         // get the selected file from user
-        var fileList = document.getElementById("GeometryFile");
+        var fileListElement: HTMLInputElement = document.getElementById("GeometryFile") as HTMLInputElement;
+        var fileList: FileList | null = fileListElement.files;
         if (!fileList) return;
-        var file = fileList.files[0];
-        fileList.value = "";
+        var file = fileList[0];
+        fileListElement.value = "";
 
         processGeometryFile(file);
     }
@@ -287,7 +288,7 @@ function geometries() {
         var reader = new FileReader();
         reader.onload = (function (theFile: File) {
             return function (ev: ProgressEvent<FileReader>) {
-                if(!color) {
+                if (!color) {
                     let msg = "Color is Undefined.  Cannot Load File";
                     console.error(msg);
                     throw new Error(msg);
@@ -400,26 +401,32 @@ function geometries() {
         return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
     }
 
-    function remove3DPoints(feature: GeoJSON.Feature<Point | LineString | Polygon>) : GeoJSON.Feature<Point | LineString | Polygon> | undefined
-    {
+    function remove3DPoints(
+        feature: GeoJSON.Feature<Point | LineString | Polygon>
+    ): GeoJSON.Feature<Point | LineString | Polygon> | undefined {
         let resFeature: Feature<Point | LineString | Polygon> | undefined = undefined;
-        switch(feature.geometry.type) {
+        switch (feature.geometry.type) {
             case "Point":
-                let pt: Position = feature.geometry.coordinates.splice(2);
-                resFeature = turf.point(pt, feature.properties, {bbox: feature.bbox, id: feature.id});
-            break;
+                feature.geometry.coordinates.splice(2);
+                resFeature = feature;
+                break;
             case "LineString":
-                let lsPos: Position[] = feature.geometry.coordinates.map(pos => pos.splice(2) );
-                resFeature = turf.lineString(lsPos, feature.properties, {bbox: feature.bbox, id: feature.id});
-            break;
+                let lsPos: Position[] = feature.geometry.coordinates.map((pos: Position) =>
+                    pos.splice(2) === undefined ? pos : pos
+                );
+                resFeature = turf.lineString(lsPos, feature.properties, { bbox: feature.bbox, id: feature.id });
+                break;
             case "Polygon":
-            break;
+                let polyPos: Position[][] = feature.geometry.coordinates.map((poly) =>
+                    poly.map((pos) => pos.splice(2) ? pos : pos) ? poly : poly
+                );
+                resFeature = turf.polygon(polyPos, feature.properties, { bbox: feature.bbox, id: feature.id });
+                break;
             default:
                 let msg = "Unsupported Type of Feature for 3D Points Removal";
                 console.log(msg);
         }
         return resFeature;
-
     }
 
     let sanityChecker = {
