@@ -35,11 +35,12 @@ function geometries() {
     - Converted to WME SDK<br>
     - Added ability to remove individual layers<br>
     - Fixed issues with "butterfly" polygons<br>
-    - Added ability to select field to display as label for the added shape.<br><br>
+    - Added ability to select field to display as label for the added shape.<br>
+    - Support for 3D points and coordinates<br>
+    - Multiple Bug Fixes. <br><br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
-    - Draw State Boundary is no longer available<br>
-    - Some 3rd Party Data Files may cause issues for display<br>
+    - Draw State Boundary is no longer available<br><br>
     - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
 `;
     // show labels using first attribute that starts or ends with 'name' (case insensitive regexp)
