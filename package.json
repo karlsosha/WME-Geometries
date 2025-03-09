@@ -28,6 +28,7 @@
     "dependencies": {
         "@placemarkio/geojson-rewind": "^1.0.2",
         "@terraformer/wkt": "^2.2.1",
+        "gml2geojson": "^0.0.7",
         "jquery": "^3.7.1",
         "prettier": "^3.5.3",
         "wme-geometries": "file:"
