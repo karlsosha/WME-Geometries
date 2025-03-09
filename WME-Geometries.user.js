@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name                WME Geometries
-// @version             2025.03.08.001
+// @version             2025.03.09.001
 // @description         Import geometry files into Waze Map Editor. Supports GeoJSON, GML, WKT, KML and GPX.
 // @match               https://www.waze.com/*/editor*
 // @match               https://www.waze.com/editor*
@@ -11,6 +11,7 @@
 // @require             https://cdn.jsdelivr.net/npm/gml2geojson@0.0.7/dist/gml2geojson.min.js
 // @require             https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @require             https://cdn.jsdelivr.net/npm/@placemarkio/geojson-rewind@1.0.2/dist/rewind.umd.min.js
 // @grant               none
 // @author              Timbones
 // @contributor         wlodek76
@@ -25,8 +26,9 @@
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
 // import * as turf from "@turf/turf";
-// import { GeoJsonProperties, Polygon, Position } from "geojson";
+// import { Polygon, Position } from "geojson";
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
+// import * as rewind from "@placemarkio/geojson-rewind";
 window.SDK_INITIALIZED.then(geometries);
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
@@ -206,6 +208,7 @@ function geometries() {
         var color = colorList.values().next().value;
         if (!color) {
             console.error("Cannot add Any more Layers at this point");
+            return;
         }
         colorList.delete(color);
         usedColors.add(color);
@@ -229,7 +232,7 @@ function geometries() {
         var reader = new FileReader();
         reader.onload = (function (theFile) {
             return function (e) {
-                var tObj = new LayerStoreObj(e.target.result, color, fileext, filename);
+                var tObj = new LayerStoreObj(e.target?.result, color, fileext, filename);
                 parseFile(tObj);
                 let filenames = JSON.parse(localStorage.getItem("WMEGeoLayers") || "[]");
                 filenames[color] = theFile;
@@ -289,6 +292,8 @@ function geometries() {
         },
     };
     function polygonSanitization(f) {
+        // Rewind first:
+        f = rewind.rewindFeature(f, "RFC7946");
         let resPolygonCoordinates = [];
         for (const poly of f.geometry.coordinates) {
             let resSubPolyCoordinates = [];
@@ -315,7 +320,9 @@ function geometries() {
                         throw new Error(message);
                     }
                     for (let vix = 0; vix < value.length; vix += 2) {
-                        resPolygonCoordinates.push(resSubPolyCoordinates.slice(value[vix], value[vix + 1] + 1));
+                        if (value[vix + 1] - value[vix] > 1) {
+                            resPolygonCoordinates.push(resSubPolyCoordinates.slice(value[vix], value[vix + 1] + 1));
+                        }
                         resSubPolyCoordinates.fill([], value[vix] + 1, value[vix + 1] + 1);
                         removeSpliced = true;
                     }
@@ -329,7 +336,9 @@ function geometries() {
                     }
                 }
             }
-            resPolygonCoordinates.push(resSubPolyCoordinates);
+            if (resSubPolyCoordinates.length > 3) {
+                resPolygonCoordinates.push(resSubPolyCoordinates);
+            }
         }
         return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
     }
@@ -450,7 +459,7 @@ function geometries() {
         layersList.id = checkboxListID;
         let trigger = null;
         // check we have features to render
-        if (features.length > 0) {
+        if (features && features.length > 0) {
             // check which attribute can be used for labels
             var labelWith = "(no labels)";
             for (const attrib in features[0].properties) {
@@ -575,7 +584,12 @@ function geometries() {
                 if (!f.id) {
                     f.id = layerid + "_" + layerindex.toString();
                 }
-                sdk.Map.addFeatureToLayer({ feature: f, layerName: layerid });
+                try {
+                    sdk.Map.addFeatureToLayer({ feature: f, layerName: layerid });
+                }
+                catch (err) {
+                    console.error(err);
+                }
             }
         }
     }
