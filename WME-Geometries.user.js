@@ -320,7 +320,9 @@ function geometries() {
                         throw new Error(message);
                     }
                     for (let vix = 0; vix < value.length; vix += 2) {
-                        resPolygonCoordinates.push(resSubPolyCoordinates.slice(value[vix], value[vix + 1] + 1));
+                        if (value[vix + 1] - value[vix] > 1) {
+                            resPolygonCoordinates.push(resSubPolyCoordinates.slice(value[vix], value[vix + 1] + 1));
+                        }
                         resSubPolyCoordinates.fill([], value[vix] + 1, value[vix + 1] + 1);
                         removeSpliced = true;
                     }
@@ -334,7 +336,9 @@ function geometries() {
                     }
                 }
             }
-            resPolygonCoordinates.push(resSubPolyCoordinates);
+            if (resSubPolyCoordinates.length > 3) {
+                resPolygonCoordinates.push(resSubPolyCoordinates);
+            }
         }
         return turf.polygon(resPolygonCoordinates, f.properties, { id: f.id });
     }
@@ -580,7 +584,12 @@ function geometries() {
                 if (!f.id) {
                     f.id = layerid + "_" + layerindex.toString();
                 }
-                sdk.Map.addFeatureToLayer({ feature: f, layerName: layerid });
+                try {
+                    sdk.Map.addFeatureToLayer({ feature: f, layerName: layerid });
+                }
+                catch (err) {
+                    console.error(err);
+                }
             }
         }
     }
