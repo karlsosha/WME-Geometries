@@ -629,7 +629,7 @@ function geometries() {
     }
     // clear all
     function removeGeometryLayers() {
-        for (const l in geometryLayers) {
+        for (const l of geometryLayers) {
             sdk.Map.removeLayer({ layerName: l });
             sdk.LayerSwitcher.removeLayerCheckbox({ name: l });
         }
