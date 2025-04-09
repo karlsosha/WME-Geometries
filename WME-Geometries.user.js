@@ -1,7 +1,7 @@
 "use strict";
 // ==UserScript==
 // @name                WME Geometries
-// @version             2025.04.08.001
+// @version             2025.04.08.002
 // @description         Import geometry files into Waze Map Editor. Supports GeoJSON, GML, WKT, KML and GPX.
 // @match               https://www.waze.com/*/editor*
 // @match               https://www.waze.com/editor*
