@@ -1,7 +1,7 @@
 {
     "name": "wme-geometries",
     "devDependencies": {
-        "@tmcw/togeojson": "^7.0.0",
+        "@tmcw/togeojson": "^7.1.0",
         "@turf/flatten": "^7.2.0",
         "@turf/turf": "^7.2.0",
         "@types/geojson": "^7946.0.16",
@@ -10,7 +10,7 @@
         "@types/tampermonkey": "^5.0.4",
         "@types/terraformer__wkt": "^2.0.3",
         "gml2geojson": "^0.0.7",
-        "typescript": "^5.8.2",
+        "typescript": "^5.8.3",
         "wme-sdk-typings": "https://web-assets.waze.com/wme_sdk_docs/beta/latest/wme-sdk-typings.tgz"
     },
     "version": "1.0.0",
