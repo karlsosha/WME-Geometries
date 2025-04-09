@@ -34,15 +34,10 @@ function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-geometries-v1-7-june-2021/291428/8";
     const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
-    - Converted to WME SDK<br>
-    - Added ability to remove individual layers<br>
-    - Fixed issues with "butterfly" polygons<br>
-    - Added ability to select field to display as label for the added shape.<br>
-    - Support for 3D points and coordinates<br>
-    - Multiple Bug Fixes. <br><br>
+    - Updated Require Script to use Latest version of toGeoJson<br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
-    - Draw State Boundary is no longer available<br><br>
+    - Draw State Boundary is no longer available<br>
     - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
 `;
     // show labels using first attribute that starts or ends with 'name' (case insensitive regexp)
