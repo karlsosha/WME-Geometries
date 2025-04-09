@@ -1,3 +1,4 @@
+"use strict";
 // ==UserScript==
 // @name                WME Geometries
 // @version             2025.04.08.001
@@ -20,11 +21,14 @@
 // @namespace           https://greasyfork.org/users/3339
 // @run-at              document-idle
 // ==/UserScript==
-import * as toGeoJSON from "@tmcw/togeojson";
-import * as Terraformer from "@terraformer/wkt";
-import * as turf from "@turf/turf";
-import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
-import * as rewind from "@placemarkio/geojson-rewind";
+/* global WazeWrap */
+// import type { WmeSDK } from "wme-sdk-typings";
+// import * as toGeoJSON from "@tmcw/togeojson";
+// import * as Terraformer from "@terraformer/wkt";
+// import * as turf from "@turf/turf";
+// import type { Feature, LineString, Point, Polygon, Position } from "geojson";
+// import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
+// import * as rewind from "@placemarkio/geojson-rewind";
 window.SDK_INITIALIZED.then(geometries);
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";

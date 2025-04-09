@@ -23,13 +23,13 @@
 
 /* global WazeWrap */
 
-import type { WmeSDK } from "wme-sdk-typings";
-import * as toGeoJSON from "@tmcw/togeojson";
-import * as Terraformer from "@terraformer/wkt";
-import * as turf from "@turf/turf";
-import type { Feature, LineString, Point, Polygon, Position } from "geojson";
-import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
-import * as rewind from "@placemarkio/geojson-rewind";
+// import type { WmeSDK } from "wme-sdk-typings";
+// import * as toGeoJSON from "@tmcw/togeojson";
+// import * as Terraformer from "@terraformer/wkt";
+// import * as turf from "@turf/turf";
+// import type { Feature, LineString, Point, Polygon, Position } from "geojson";
+// import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
+// import * as rewind from "@placemarkio/geojson-rewind";
 
 window.SDK_INITIALIZED.then(geometries);
 
