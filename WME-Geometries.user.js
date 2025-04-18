@@ -1,16 +1,16 @@
 "use strict";
 // ==UserScript==
 // @name                WME Geometries
-// @version             2025.04.08.002
+// @version             2025.04.18.001
 // @description         Import geometry files into Waze Map Editor. Supports GeoJSON, GML, WKT, KML and GPX.
 // @match               https://www.waze.com/*/editor*
 // @match               https://www.waze.com/editor*
 // @match               https://beta.waze.com/*
 // @exclude             https://www.waze.com/*user/*editor/*
-// @require             https://cdn.jsdelivr.net/npm/@tmcw/togeojson@7/dist/togeojson.umd.min.js
+// @require             https://cdn.jsdelivr.net/npm/@tmcw/togeojson@7.1.1/dist/togeojson.umd.min.js
 // @require             https://unpkg.com/@terraformer/wkt
 // @require             https://cdn.jsdelivr.net/npm/gml2geojson@0.0.7/dist/gml2geojson.min.js
-// @require             https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
+// @require             https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @require             https://cdn.jsdelivr.net/npm/@placemarkio/geojson-rewind@1.0.2/dist/rewind.umd.min.js
 // @grant               none
@@ -34,7 +34,7 @@ function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-geometries-v1-7-june-2021/291428/8";
     const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
-    - Updated Require Script to use Latest version of toGeoJson<br>
+    - Updated Require Script to use Latest version of toGeoJson and turf<br>
 <b>KNOWN ISSUES:</b><br>
     - Label Property is a radio Button vs ability to select multiple properties.<br>
     - Draw State Boundary is no longer available<br>
