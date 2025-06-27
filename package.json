@@ -1,6 +1,7 @@
 {
     "name": "wme-geometries",
     "devDependencies": {
+        "@biomejs/biome": "^2.0.5",
         "@tmcw/togeojson": "^7.1.2",
         "@turf/flatten": "^7.2.0",
         "@turf/turf": "^7.2.0",
@@ -30,7 +31,7 @@
         "@terraformer/wkt": "^2.2.1",
         "gml2geojson": "^0.0.7",
         "jquery": "^3.7.1",
-        "prettier": "^3.5.3",
+        "prettier": "^3.6.1",
         "wme-geometries": "file:"
     }
 }
