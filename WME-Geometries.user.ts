@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name                WME Geometries
-// @version             2025.04.18.001
+// @version             2025.11.09.001
 // @description         Import geometry files into Waze Map Editor. Supports GeoJSON, GML, WKT, KML and GPX.
 // @match               https://www.waze.com/*/editor*
 // @match               https://www.waze.com/editor*
@@ -23,7 +23,7 @@
 
 /* global WazeWrap */
 
-// import type { WmeSDK } from "wme-sdk-typings";
+// import type { State, WmeSDK } from "wme-sdk-typings";
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
 // import * as turf from "@turf/turf";
@@ -31,31 +31,27 @@
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 // import * as rewind from "@placemarkio/geojson-rewind";
 
-
+let sdk: WmeSDK;
 window.SDK_INITIALIZED.then(() => {
     if (!window.getWmeSdk) {
         throw new Error("SDK is not installed");
     }
-    const sdk: WmeSDK = window.getWmeSdk({
+    sdk = window.getWmeSdk({
         scriptId: "wme-geometries",
         scriptName: "WME Geometries",
     });
 
     console.log(`SDK v ${sdk.getSDKVersion()} on ${sdk.getWMEVersion()} initialized`);
 
-    // delayed initialisation
     geometries();
 })
 
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-geometries-v1-7-june-2021/291428/8";
-    const GEOMETRIES_UPDATE_NOTES = `<b>NEW:</b><br>
-    - Updated Require Script to use Latest version of toGeoJson and turf<br>
-<b>KNOWN ISSUES:</b><br>
-    - Label Property is a radio Button vs ability to select multiple properties.<br>
-    - Draw State Boundary is no longer available<br>
-    - 3D Points are not Supported. (LAT, LON, ALT)<br><br>
+    const GEOMETRIES_UPDATE_NOTES = `<b>FIXED:</b><br>
+    - Draw State Boundary<br>
+    - Handle Correctly Availability of the Areas Panel<br>
 `;
 
     type MapFormatTypes = "GEOJSON" | "KML" | "WKT" | "GML" | "GMX" | "GPX";
@@ -140,6 +136,64 @@ function geometries() {
         for (const f in files) processGeometryFile(files[f]);
     }
 
+    const geobox: HTMLDivElement = document.createElement<"div">("div");
+
+    function appendGeoBox(sidepanel: HTMLElement | null | undefined) {
+        if (sidepanel && !document.contains(geobox)) {
+            sidepanel.append(geobox);
+        }
+    }
+
+    function triggerOnElementUpdate(selector: string, waitToExist: boolean = false, root: ShadowRoot | null | undefined = undefined) {
+        return new Promise((resolve) => {
+            let _baseNode: Document | ShadowRoot = document;
+            let _observerStart : HTMLElement | ShadowRoot = _baseNode.body
+            if(root) {
+                _baseNode = root;
+                _observerStart = root;
+            }
+
+            if( waitToExist && _baseNode.querySelector(selector)) {
+                triggerOnElementUpdate(selector, !waitToExist, root);
+                return resolve(_baseNode.querySelector(selector));
+            }
+
+            const observer = new MutationObserver((mutations: MutationRecord[]) => {
+                for (const mutation of mutations) {
+                    if(waitToExist) {
+                        for(const added of mutation.addedNodes) {
+                            if (added instanceof HTMLElement && added.matches(selector)) {
+                                if (added) {
+                                    observer.disconnect();
+                                    triggerOnElementUpdate(selector, !waitToExist, root);
+                                    resolve(added);
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        for(const removed of mutation.removedNodes) {
+                            if (removed instanceof HTMLElement && removed.matches(selector)) {
+                                observer.disconnect();
+                                triggerOnElementUpdate(selector, !waitToExist, root).then((newAdded) => {
+                                    return appendGeoBox(newAdded as HTMLElement);
+                                })
+                                resolve(removed);
+                            }
+                        }
+                    }
+                }
+            });
+
+
+            observer.observe(_observerStart, {
+                childList: true,
+                subtree: true,
+            });
+        });
+    }
+
+
     // add interface to Settings tab
     function init() {
         if (!WazeWrap.Ready) {
@@ -149,16 +203,11 @@ function geometries() {
             return;
         }
 
-        const geobox: HTMLDivElement = document.createElement<"div">("div");
         geobox.style.paddingTop = "6px";
 
         console.group();
-        sdk.Events.on({
-            eventName: "wme-feature-editor-rendered",
-            eventHandler: () => {
-                const sidepanelAreas = $("#sidepanel-areas");
-                sidepanelAreas.append(geobox);
-            }
+        triggerOnElementUpdate("#sidepanel-areas", true).then((sidepanel) => {
+            appendGeoBox(sidepanel as HTMLElement);
         });
 
         const geotitle = document.createElement("h4");
@@ -212,30 +261,96 @@ function geometries() {
         console.groupEnd();
     }
 
-    // function addFormat(format: string) {
-    //     $("#formathelp")[0].innerText += `, ${format}`;
-    // }
+    const layerConfig = {
+        defaultRule: {
+            styleContext: {
+                strokeColor: (context) => {
+                    return context?.feature?.properties?.style?.strokeColor;
+                },
+                fillColor: (context) => {
+                    return context?.feature?.properties?.style?.fillColor;
+                },
+                labelOutlineColor: (context) => {
+                    return context?.feature?.properties?.style?.labelOutlineColor;
+                },
+                label: (context) => {
+                    return context?.feature?.properties?.style?.label;
+                },
+            },
+            styleRules: [
+                {
+                    predicate: () => {
+                        return true;
+                    },
+                    style: {
+                        strokeColor: "${strokeColor}",
+                        strokeOpacity: 0.75,
+                        strokeWidth: 3,
+                        fillColor: "${fillColor}",
+                        fillOpacity: 0.1,
+                        pointRadius: 6,
+                        fontColor: "white",
+                        labelOutlineColor: "${labelOutlineColor}",
+                        labelOutlineWidth: 4,
+                        labelAlign: "center",
+                        label: "${label}",
+                    },
+                },
+            ],
+        },
+    };
 
     function drawStateBoundary() {
         const topState: State | null = sdk.DataModel.States.getTopState();
-        if (!topState) {
+        if (!topState || !topState.geometry || !topState.geometry.coordinates) {
             console.info("WME Geometries: no state or geometry available, sorry");
             return;
         }
 
         var layerName = `(${topState.name})`;
-        var layers = W.map.getLayersBy("layerGroup", "wme_geometry");
-        for (var i = 0; i < layers.length; i++) {
-            if (layers[i].name === "Geometry: " + layerName) {
-                console.info("WME Geometries: current state already loaded");
-                return;
-            }
+        if(geometryLayers.has(layerName)) {
+            sdk.Map.removeLayer({ layerName: layerName });
+            geometryLayers.delete(layerName);
         }
 
-        var geo = formats.GEOJSON.parseGeometry(topState.name);
-        var json = formats.GEOJSON.write(geo);
-        var obj = new layerStoreObj(json, "grey", "GEOJSON", layerName);
-        parseFile(obj);
+        let features: GeoJSON.Feature[] | undefined;
+        if(topState.geometry.type !== "MultiPolygon") {
+            features = [turf.polygon(topState.geometry.coordinates)];
+        }
+        else {
+            features = turf.flatten(topState.geometry).features;
+        }
+
+        features = sanityCheck(features);
+
+        sdk.Map.addLayer({
+            layerName: layerName,
+            styleRules: layerConfig.defaultRule.styleRules,
+            styleContext: layerConfig.defaultRule.styleContext,
+        });
+        sdk.Map.setLayerVisibility({ layerName: layerName, visibility: true });
+        sdk.LayerSwitcher.addLayerCheckbox({ name: layerName, isChecked: true });
+
+        const layerStyle = {
+            strokeColor: "red",
+            fillOpacity: 0,
+            labelOutlineColor: "red"
+        };
+        if(!features) {
+            console.error("No Features to draw State Boundary");
+            return;
+        };
+        geometryLayers.add(layerName);
+        for(const f of features) {
+            if(!f.properties) {
+                Object.assign(f, {properties: {}});
+            }
+            if (f.properties && !f.properties?.style) f.properties.style = layerStyle;
+            if (!f.id) {
+                f.id = `${layerName}_boundary`;
+            }
+            sdk.Map.addFeatureToLayer({ feature: f, layerName: layerName });
+        }
     }
 
     // import selected file as a vector layer
@@ -302,44 +417,6 @@ function geometries() {
 
         reader.readAsText(file);
     }
-    const layerConfig = {
-        defaultRule: {
-            styleContext: {
-                strokeColor: (context) => {
-                    return context?.feature?.properties?.style?.strokeColor;
-                },
-                fillColor: (context) => {
-                    return context?.feature?.properties?.style?.fillColor;
-                },
-                labelOutlineColor: (context) => {
-                    return context?.feature?.properties?.style?.labelOutlineColor;
-                },
-                label: (context) => {
-                    return context?.feature?.properties?.style?.label;
-                },
-            },
-            styleRules: [
-                {
-                    predicate: () => {
-                        return true;
-                    },
-                    style: {
-                        strokeColor: "${strokeColor}",
-                        strokeOpacity: 0.75,
-                        strokeWidth: 3,
-                        fillColor: "${fillColor}",
-                        fillOpacity: 0.1,
-                        pointRadius: 6,
-                        fontColor: "white",
-                        labelOutlineColor: "${labelOutlineColor}",
-                        labelOutlineWidth: 4,
-                        labelAlign: "center",
-                        label: "${label}",
-                    },
-                },
-            ],
-        },
-    };
 
     function polygonSanitization(f: GeoJSON.Feature<Polygon>): GeoJSON.Feature<Polygon> {
         // Rewind first:
@@ -427,7 +504,8 @@ function geometries() {
         polygon: polygonSanitization,
     };
 
-    function sanityCheck(source: GeoJSON.Feature[]): GeoJSON.Feature[] | undefined {
+    function sanityCheck(source: GeoJSON.Feature[] | undefined): GeoJSON.Feature[] | undefined {
+        if (!source) return undefined;
         const resFeatures: GeoJSON.Feature[] | undefined = [];
 
         for (let f of source) {
@@ -699,6 +777,8 @@ function geometries() {
         usedColors.clear();
         return false;
     }
+
+    init();
 }
 
 // // ------------------------------------------------------------------------------------
