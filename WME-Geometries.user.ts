@@ -31,7 +31,21 @@
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 // import * as rewind from "@placemarkio/geojson-rewind";
 
-window.SDK_INITIALIZED.then(geometries);
+
+window.SDK_INITIALIZED.then(() => {
+    if (!window.getWmeSdk) {
+        throw new Error("SDK is not installed");
+    }
+    const sdk: WmeSDK = window.getWmeSdk({
+        scriptId: "wme-geometries",
+        scriptName: "WME Geometries",
+    });
+
+    console.log(`SDK v ${sdk.getSDKVersion()} on ${sdk.getWMEVersion()} initialized`);
+
+    // delayed initialisation
+    geometries();
+})
 
 function geometries() {
     const GF_LINK = "https://greasyfork.org/en/scripts/8129-wme-geometries";
@@ -58,41 +72,26 @@ function geometries() {
     // -------------------------------------------------------------
     const geometryLayers: Set<string> = new Set();
 
-    interface Parser {
-        read: (content: string) => void;
-        internalProjection: string;
-        externalProjection: string;
-    }
+    // interface Parser {
+    //     read: (content: string) => void ;
+    //     internalProjection: string;
+    //     externalProjection: string;
+    // }
 
-    let parser: Parser;
+    // let parser: Parser;
 
-    enum Formats {
-        GEOJSON = 0,
-        KML = 1,
-        WKT = 2,
-        GML = 3,
-        GMX = 4,
-    }
+    // enum Formats {
+    //     GEOJSON = 0,
+    //     KML = 1,
+    //     WKT = 2,
+    //     GML = 3,
+    //     GMX = 4,
+    // }
 
     const formathelp: string = "GeoJSON, KML, WKT, GPX, GML";
 
     let layerindex = 0;
     let selectedAttrib = "";
-
-    if (!window.getWmeSdk) {
-        throw new Error("SDK is not installed");
-    }
-    const sdk: WmeSDK = window.getWmeSdk({
-        scriptId: "wme-geometries",
-        scriptName: "WME Geometries",
-    });
-
-    console.log(`SDK v ${sdk.getSDKVersion()} on ${sdk.getWMEVersion()} initialized`);
-
-    // delayed initialisation
-    sdk.Events.once({ eventName: "wme-map-data-loaded" }).then(() => {
-        init();
-    });
 
     // function processMapUpdateEvent() {
     //     if (Object.keys(geometryLayers).length === 0) return;
@@ -154,8 +153,13 @@ function geometries() {
         geobox.style.paddingTop = "6px";
 
         console.group();
-        const sidepanelAreas = $("#sidepanel-areas");
-        sidepanelAreas.append(geobox);
+        sdk.Events.on({
+            eventName: "wme-feature-editor-rendered",
+            eventHandler: () => {
+                const sidepanelAreas = $("#sidepanel-areas");
+                sidepanelAreas.append(geobox);
+            }
+        });
 
         const geotitle = document.createElement("h4");
         geotitle.innerHTML = "Import Geometry File";
@@ -179,12 +183,12 @@ function geometries() {
         notes.innerHTML = `<b>Formats:</b> <span id="formathelp">${formathelp}</span><br> <b>Coords:</b> EPSG:4326, EPSG:4269, EPSG:3857`;
         geoform.appendChild(notes);
 
-        // var inputstate = document.createElement("input");
-        // inputstate.type = "button";
-        // inputstate.value = "Draw State Boundary";
-        // inputstate.title = "Draw the boundary for the topmost state";
-        // inputstate.onclick = drawStateBoundary;
-        // geoform.appendChild(inputstate);
+        var inputstate = document.createElement("input");
+        inputstate.type = "button";
+        inputstate.value = "Draw State Boundary";
+        inputstate.title = "Draw the boundary for the topmost state";
+        inputstate.onclick = drawStateBoundary;
+        geoform.appendChild(inputstate);
 
         const inputclear = document.createElement("input");
         inputclear.type = "button";
@@ -208,31 +212,31 @@ function geometries() {
         console.groupEnd();
     }
 
-    function addFormat(format: string) {
-        $("#formathelp")[0].innerText += `, ${format}`;
-    }
-
-    // function drawStateBoundary() {
-    //     let topState: State | null = sdk.DataModel.States.getTopState();
-    //     if (!topState) {
-    //         console.info("WME Geometries: no state or geometry available, sorry");
-    //         return;
-    //     }
-
-    //     var layerName = `(${topState.name})`;
-    //     var layers = W.map.getLayersBy("layerGroup", "wme_geometry");
-    //     for (var i = 0; i < layers.length; i++) {
-    //         if (layers[i].name === "Geometry: " + layerName) {
-    //             console.info("WME Geometries: current state already loaded");
-    //             return;
-    //         }
-    //     }
-
-    //     var geo = formats.GEOJSON.parseGeometry(topState.name);
-    //     var json = formats.GEOJSON.write(geo);
-    //     var obj = new layerStoreObj(json, "grey", "GEOJSON", layerName);
-    //     parseFile(obj);
+    // function addFormat(format: string) {
+    //     $("#formathelp")[0].innerText += `, ${format}`;
     // }
+
+    function drawStateBoundary() {
+        const topState: State | null = sdk.DataModel.States.getTopState();
+        if (!topState) {
+            console.info("WME Geometries: no state or geometry available, sorry");
+            return;
+        }
+
+        var layerName = `(${topState.name})`;
+        var layers = W.map.getLayersBy("layerGroup", "wme_geometry");
+        for (var i = 0; i < layers.length; i++) {
+            if (layers[i].name === "Geometry: " + layerName) {
+                console.info("WME Geometries: current state already loaded");
+                return;
+            }
+        }
+
+        var geo = formats.GEOJSON.parseGeometry(topState.name);
+        var json = formats.GEOJSON.write(geo);
+        var obj = new layerStoreObj(json, "grey", "GEOJSON", layerName);
+        parseFile(obj);
+    }
 
     // import selected file as a vector layer
     function addGeometryLayer() {
@@ -270,16 +274,16 @@ function geometries() {
         geolist.appendChild(fileitem);
 
         // check if format is supported
-        const parser = {
-            read: null,
-            internalProjection: null,
-            externalProjection: null,
-        };
-        if (!parser) {
-            fileitem.innerHTML = `${fileext.toUpperCase()} format not supported :(`;
-            fileitem.style.color = "red";
-            return;
-        }
+        // const parser : Parser = {
+        //     read: null,
+        //     internalProjection: null,
+        //     externalProjection: null,
+        // };
+        // if (!parser) {
+        //     fileitem.innerHTML = `${fileext.toUpperCase()} format not supported :(`;
+        //     fileitem.style.color = "red";
+        //     return;
+        // }
 
         // read the file into the new layer, and update the localStorage layer cache
         const reader = new FileReader();
@@ -302,24 +306,16 @@ function geometries() {
         defaultRule: {
             styleContext: {
                 strokeColor: (context) => {
-                    const style = context?.feature?.properties?.style;
-                    if (!style) return style;
-                    return style?.strokeColor;
+                    return context?.feature?.properties?.style?.strokeColor;
                 },
                 fillColor: (context) => {
-                    const style = context?.feature?.properties?.style;
-                    if (!style) return style;
-                    return style?.fillColor;
+                    return context?.feature?.properties?.style?.fillColor;
                 },
                 labelOutlineColor: (context) => {
-                    const style = context?.feature?.properties?.style;
-                    if (!style) return style;
-                    return style?.labelOutlineColor;
+                    return context?.feature?.properties?.style?.labelOutlineColor;
                 },
                 label: (context) => {
-                    const style = context?.feature?.properties?.style;
-                    if (!style) return style;
-                    return style?.label;
+                    return context?.feature?.properties?.style?.label;
                 },
             },
             styleRules: [
@@ -399,7 +395,7 @@ function geometries() {
     function remove3DPoints(
         feature: GeoJSON.Feature<Point | LineString | Polygon>
     ): GeoJSON.Feature<Point | LineString | Polygon> | undefined {
-        let resFeature: Feature<Point | LineString | Polygon> | undefined = undefined;
+        let resFeature: Feature<Point | LineString | Polygon> | undefined ;
         switch (feature.geometry.type) {
             case "Point":
                 feature.geometry.coordinates.splice(2);
