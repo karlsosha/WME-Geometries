@@ -31,7 +31,6 @@
         "@terraformer/wkt": "^2.2.1",
         "gml2geojson": "^0.0.7",
         "jquery": "^3.7.1",
-        "prettier": "^3.6.1",
-        "wme-geometries": "file:"
+        "prettier": "^3.6.2"
     }
 }
