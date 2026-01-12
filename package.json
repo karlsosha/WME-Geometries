@@ -1,10 +1,9 @@
 {
     "name": "wme-geometries",
     "devDependencies": {
-        "@biomejs/biome": "^2.0.5",
+        "@biomejs/biome": "^2.3.10",
         "@tmcw/togeojson": "^7.1.2",
-        "@turf/flatten": "^7.2.0",
-        "@turf/turf": "^7.2.0",
+        "@turf/turf": "^7.3.1",
         "@types/geojson": "^7946.0.16",
         "@types/i18n": "^0.13.12",
         "@types/jquery": "^3.5.32",
@@ -31,6 +30,6 @@
         "@terraformer/wkt": "^2.2.1",
         "gml2geojson": "^0.0.7",
         "jquery": "^3.7.1",
-        "prettier": "^3.6.2"
+        "prettier": "^3.7.4"
     }
 }
