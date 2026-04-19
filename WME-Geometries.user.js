@@ -22,6 +22,7 @@
 // @run-at              document-idle
 // ==/UserScript==
 /* global WazeWrap */
+/* global turf */
 // import type { SidebarTabName, State, WmeSDK } from "wme-sdk-typings";
 // import * as toGeoJSON from "@tmcw/togeojson";
 // import * as Terraformer from "@terraformer/wkt";
@@ -117,50 +118,53 @@ function geometries() {
             sidepanel.append(geobox);
         }
     }
-    function triggerOnElementUpdate(selector, waitToExist = false, root = undefined) {
-        return new Promise((resolve) => {
-            let _baseNode = document;
-            let _observerStart = _baseNode.body;
-            if (root) {
-                _baseNode = root;
-                _observerStart = root;
-            }
-            if (waitToExist && _baseNode.querySelector(selector)) {
-                triggerOnElementUpdate(selector, !waitToExist, root);
-                return resolve(_baseNode.querySelector(selector));
-            }
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    if (waitToExist) {
-                        for (const added of mutation.addedNodes) {
-                            if (added instanceof HTMLElement && added.matches(selector)) {
-                                if (added) {
-                                    observer.disconnect();
-                                    triggerOnElementUpdate(selector, !waitToExist, root);
-                                    resolve(added);
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        for (const removed of mutation.removedNodes) {
-                            if (removed instanceof HTMLElement && removed.matches(selector)) {
-                                observer.disconnect();
-                                triggerOnElementUpdate(selector, !waitToExist, root).then((newAdded) => {
-                                    return appendGeoBox(newAdded);
-                                });
-                                resolve(removed);
-                            }
-                        }
-                    }
-                }
-            });
-            observer.observe(_observerStart, {
-                childList: true,
-                subtree: true,
-            });
-        });
-    }
+    // function triggerOnElementUpdate(
+    //     selector: string,
+    //     waitToExist: boolean = false,
+    //     root: ShadowRoot | null | undefined = undefined,
+    // ) {
+    //     return new Promise((resolve) => {
+    //         let _baseNode: Document | ShadowRoot = document;
+    //         let _observerStart: HTMLElement | ShadowRoot = _baseNode.body;
+    //         if (root) {
+    //             _baseNode = root;
+    //             _observerStart = root;
+    //         }
+    //         if (waitToExist && _baseNode.querySelector(selector)) {
+    //             triggerOnElementUpdate(selector, !waitToExist, root);
+    //             return resolve(_baseNode.querySelector(selector));
+    //         }
+    //         const observer = new MutationObserver((mutations: MutationRecord[]) => {
+    //             for (const mutation of mutations) {
+    //                 if (waitToExist) {
+    //                     for (const added of mutation.addedNodes) {
+    //                         if (added instanceof HTMLElement && added.matches(selector)) {
+    //                             if (added) {
+    //                                 observer.disconnect();
+    //                                 triggerOnElementUpdate(selector, !waitToExist, root);
+    //                                 resolve(added);
+    //                             }
+    //                         }
+    //                     }
+    //                 } else {
+    //                     for (const removed of mutation.removedNodes) {
+    //                         if (removed instanceof HTMLElement && removed.matches(selector)) {
+    //                             observer.disconnect();
+    //                             triggerOnElementUpdate(selector, !waitToExist, root).then((newAdded) => {
+    //                                 return appendGeoBox(newAdded as HTMLElement);
+    //                             });
+    //                             resolve(removed);
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         });
+    //         observer.observe(_observerStart, {
+    //             childList: true,
+    //             subtree: true,
+    //         });
+    //     });
+    // }
     function addGeometriesControls(domId, tabName) {
         if (tabName === "areas") {
             const sidepanel = document.getElementById(domId);
@@ -177,9 +181,12 @@ function geometries() {
         }
         geobox.style.paddingTop = "6px";
         console.group();
-        sdk.Events.on({ eventName: "wme-sidebar-tab-opened", eventHandler: (payload) => {
+        sdk.Events.on({
+            eventName: "wme-sidebar-tab-opened",
+            eventHandler: (payload) => {
                 addGeometriesControls(payload.domId, payload.tabName);
-            } });
+            },
+        });
         const geotitle = document.createElement("h4");
         geotitle.innerHTML = "Import Geometry File";
         geobox.appendChild(geotitle);
@@ -255,7 +262,7 @@ function geometries() {
     };
     function drawStateBoundary() {
         const topState = sdk.DataModel.States.getTopState();
-        if (!topState || !topState.geometry || !topState.geometry.coordinates) {
+        if (!topState?.geometry?.coordinates) {
             console.info("WME Geometries: no state or geometry available, sorry");
             return;
         }
@@ -282,13 +289,12 @@ function geometries() {
         const layerStyle = {
             strokeColor: "red",
             fillOpacity: 0,
-            labelOutlineColor: "red"
+            labelOutlineColor: "red",
         };
         if (!features) {
             console.error("No Features to draw State Boundary");
             return;
         }
-        ;
         geometryLayers.add(layerName);
         for (const f of features) {
             if (!f.properties) {
@@ -319,7 +325,7 @@ function geometries() {
         }
         let fileext = file?.name?.split(".").pop();
         const filename = file?.name?.replace(`.${fileext}`, "");
-        if (!file || !file?.name || !fileext || !filename)
+        if (!file?.name || !fileext || !filename)
             return;
         fileext = fileext ? fileext.toUpperCase() : "";
         // add list item
@@ -603,7 +609,7 @@ function geometries() {
         function createClearButton(layerObj, layerid) {
             const clearButtonObject = document.createElement("button");
             clearButtonObject.textContent = "Clear Layer";
-            clearButtonObject.name = `clear-${(`${layerObj.fileName}.${layerObj.fileExt}`).toLowerCase()}`;
+            clearButtonObject.name = `clear-${`${layerObj.fileName}.${layerObj.fileExt}`.toLowerCase()}`;
             clearButtonObject.id = `clear-${layerid}`;
             clearButtonObject.className = "clear-layer-button";
             clearButtonObject.style.backgroundColor = layerObj.color;
@@ -611,10 +617,10 @@ function geometries() {
         }
         // When called as part of loading a new file, the list object will already have been created,
         // whereas if called as part of reloding cached data we need to create it here...
-        let liObj = document.getElementById((`${layerObj.fileName}.${layerObj.fileExt}`).toLowerCase());
+        let liObj = document.getElementById(`${layerObj.fileName}.${layerObj.fileExt}`.toLowerCase());
         if (liObj === null) {
             liObj = document.createElement("li");
-            liObj.id = (`${layerObj.fileName}.${layerObj.fileExt}`).toLowerCase();
+            liObj.id = `${layerObj.fileName}.${layerObj.fileExt}`.toLowerCase();
             liObj.style.color = layerObj.color;
             geolist.appendChild(liObj);
         }
@@ -624,8 +630,7 @@ function geometries() {
         }
         else {
             liObj.innerHTML = layerObj.fileName;
-            liObj.title =
-                `${layerObj.fileExt.toUpperCase()}: ${features.length} features loaded\n${labelWith}`;
+            liObj.title = `${layerObj.fileExt.toUpperCase()}: ${features.length} features loaded\n${labelWith}`;
             liObj.appendChild(layersList);
             const clearButtonObject = createClearButton(layerObj, layerid);
             liObj.appendChild(clearButtonObject);
