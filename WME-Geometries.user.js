@@ -8,7 +8,7 @@
 // @match               https://beta.waze.com/*
 // @exclude             https://www.waze.com/*user/*editor/*
 // @require             https://cdn.jsdelivr.net/npm/@tmcw/togeojson@7.1.1/dist/togeojson.umd.min.js
-// @require             https://unpkg.com/@terraformer/wkt
+// @require             https://cdn.jsdelivr.net/npm/@terraformer/wkt@2.2.1/dist/t-wkt.umd.min.js
 // @require             https://cdn.jsdelivr.net/npm/gml2geojson@0.0.7/dist/gml2geojson.min.js
 // @require             https://cdn.jsdelivr.net/npm/@turf/turf@7.3.1/turf.min.js
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
