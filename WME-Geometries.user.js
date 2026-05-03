@@ -118,53 +118,6 @@ function geometries() {
             sidepanel.append(geobox);
         }
     }
-    // function triggerOnElementUpdate(
-    //     selector: string,
-    //     waitToExist: boolean = false,
-    //     root: ShadowRoot | null | undefined = undefined,
-    // ) {
-    //     return new Promise((resolve) => {
-    //         let _baseNode: Document | ShadowRoot = document;
-    //         let _observerStart: HTMLElement | ShadowRoot = _baseNode.body;
-    //         if (root) {
-    //             _baseNode = root;
-    //             _observerStart = root;
-    //         }
-    //         if (waitToExist && _baseNode.querySelector(selector)) {
-    //             triggerOnElementUpdate(selector, !waitToExist, root);
-    //             return resolve(_baseNode.querySelector(selector));
-    //         }
-    //         const observer = new MutationObserver((mutations: MutationRecord[]) => {
-    //             for (const mutation of mutations) {
-    //                 if (waitToExist) {
-    //                     for (const added of mutation.addedNodes) {
-    //                         if (added instanceof HTMLElement && added.matches(selector)) {
-    //                             if (added) {
-    //                                 observer.disconnect();
-    //                                 triggerOnElementUpdate(selector, !waitToExist, root);
-    //                                 resolve(added);
-    //                             }
-    //                         }
-    //                     }
-    //                 } else {
-    //                     for (const removed of mutation.removedNodes) {
-    //                         if (removed instanceof HTMLElement && removed.matches(selector)) {
-    //                             observer.disconnect();
-    //                             triggerOnElementUpdate(selector, !waitToExist, root).then((newAdded) => {
-    //                                 return appendGeoBox(newAdded as HTMLElement);
-    //                             });
-    //                             resolve(removed);
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         });
-    //         observer.observe(_observerStart, {
-    //             childList: true,
-    //             subtree: true,
-    //         });
-    //     });
-    // }
     function addGeometriesControls(domId, tabName) {
         if (tabName === "areas") {
             const sidepanel = document.getElementById(domId);
