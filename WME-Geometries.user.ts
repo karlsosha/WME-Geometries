@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name                WME Geometries
-// @version             2026.01.11.001
+// @version             2026.05.14.001
 // @description         Import geometry files into Waze Map Editor. Supports GeoJSON, GML, WKT, KML and GPX.
 // @match               https://www.waze.com/*/editor*
 // @match               https://www.waze.com/editor*
@@ -9,7 +9,7 @@
 // @require             https://cdn.jsdelivr.net/npm/@tmcw/togeojson@7.1.1/dist/togeojson.umd.min.js
 // @require             https://cdn.jsdelivr.net/npm/@terraformer/wkt@2.2.1/dist/t-wkt.umd.min.js
 // @require             https://cdn.jsdelivr.net/npm/gml2geojson@0.0.7/dist/gml2geojson.min.js
-// @require             https://cdn.jsdelivr.net/npm/@turf/turf@7.3.1/turf.min.js
+// @require             https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @require             https://cdn.jsdelivr.net/npm/@placemarkio/geojson-rewind@1.0.2/dist/rewind.umd.min.js
 // @grant               none
@@ -154,19 +154,13 @@ function geometries() {
 
     // add interface to Settings tab
     function init() {
-        if (!WazeWrap.Ready) {
-            setTimeout(() => {
-                init();
-            }, 100);
-            return;
-        }
 
         geobox.style.paddingTop = "6px";
 
         console.group();
         sdk.Events.on({
             eventName: "wme-sidebar-tab-opened",
-            eventHandler: (payload: { domId: string; tabName: string }) => {
+            eventHandler: (payload: { domId: string; tabName: SidebarTabName }) => {
                 addGeometriesControls(payload.domId, payload.tabName);
             },
         });
